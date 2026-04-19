@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔐 Fraud Detection in DeFi Using Graph Neural Networks and Graph Embeddings
+# Fraud Detection in DeFi Using Graph Neural Networks and Graph Embeddings
 
 ### Final Year B.Tech Project — Information Technology (2026)
 
