@@ -191,7 +191,7 @@ export default function SettingsPage() {
                       <div className="form-group" style={{ margin: 0, opacity: 1 }}>
                         <label>REST API Bearer Token</label>
                         <div className="input-wrap">
-                          <input type="password" defaultValue="gns-sk-9328409823094823904820984029" className="font-mono text-sm tracking-widest text-[#00ffb4]" disabled />
+                          <input type="password" placeholder="••••••••••••••••••••••••••••••••" className="font-mono text-sm tracking-widest text-[#00ffb4]" disabled />
                         </div>
                         <p className="text-xs text-zinc-500 mt-2">Use this token to interact with the backend modeling engine programmatically.</p>
                       </div>
