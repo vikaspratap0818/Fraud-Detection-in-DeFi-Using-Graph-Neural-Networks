@@ -1,0 +1,245 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background: #050b12;
+    font-family: 'DM Sans', sans-serif;
+    @apply text-zinc-100;
+  }
+}
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #27272a;
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
+  }
+}
+
+@layer components {
+  .login-root {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+    padding: 24px;
+  }
+
+  /* radial glow behind card */
+  .login-root::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0,255,180,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 20% 80%, rgba(0,100,255,0.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Card ── */
+  .card {
+    position: relative;
+    width: 100%;
+    /* max-width removed here so it spans full in dashboard, explicitly set in login pages */
+    background: rgba(8, 18, 28, 0.85);
+    border: 1px solid rgba(0, 255, 180, 0.18);
+    border-radius: 20px;
+    backdrop-filter: blur(20px);
+    box-shadow:
+      0 0 0 1px rgba(0,255,180,0.05),
+      0 0 60px rgba(0,255,180,0.06),
+      0 24px 80px rgba(0,0,0,0.7);
+  }
+
+  .login-card {
+    max-width: 420px;
+    padding: 44px 40px 40px;
+    opacity: 0;
+    transform: translateY(28px);
+    animation: cardIn 0.7s cubic-bezier(0.22,1,0.36,1) 0.1s forwards;
+  }
+
+  @keyframes cardIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* animated border pulse */
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 21px;
+    background: linear-gradient(135deg, rgba(0,255,180,0.25), transparent 40%, rgba(0,100,255,0.15) 80%, transparent);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    padding: 1px;
+    pointer-events: none;
+    animation: borderGlow 4s ease-in-out infinite alternate;
+  }
+
+  @keyframes borderGlow {
+    0%   { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+
+  /* ── Form ── */
+  .form-group {
+    margin-bottom: 18px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease var(--delay, 0.5s) forwards;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(0,255,180,0.6);
+    margin-bottom: 8px;
+  }
+
+  .input-wrap {
+    position: relative;
+  }
+
+  .input-wrap input {
+    width: 100%;
+    background: rgba(0, 255, 180, 0.03);
+    border: 1px solid rgba(0, 255, 180, 0.14);
+    border-radius: 10px;
+    padding: 13px 44px 13px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    color: #d6f5ee;
+    outline: none;
+    transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+    caret-color: #00ffb4;
+  }
+
+  .input-wrap input::placeholder { color: rgba(180,220,210,0.25); }
+
+  .input-wrap input:focus {
+    border-color: rgba(0,255,180,0.55);
+    background: rgba(0,255,180,0.06);
+    box-shadow: 0 0 0 3px rgba(0,255,180,0.08), 0 0 18px rgba(0,255,180,0.06);
+  }
+
+  /* scan line on focus */
+  .input-wrap::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 1px;
+    bottom: 0;
+    border-radius: 0 0 10px 10px;
+    background: linear-gradient(90deg, transparent, #00ffb4, transparent);
+    opacity: 0;
+    transform: scaleX(0);
+    transition: opacity 0.25s, transform 0.35s cubic-bezier(0.22,1,0.36,1);
+  }
+
+  .input-wrap.focused::after {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #00d496, #00a8e8);
+    border: none;
+    border-radius: 10px;
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: #030d14;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 24px rgba(0,212,150,0.3);
+    /* For dashboard usage avoiding fadeUp delay */
+  }
+
+  .btn-primary.animated {
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.65s forwards;
+  }
+
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.18), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,212,150,0.45);
+  }
+  .btn-primary:hover::before { opacity: 1; }
+  .btn-primary:active:not(:disabled) { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* shimmer sweep */
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 60%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: shimmer 2.5s infinite;
+  }
+
+  @keyframes shimmer {
+    0%   { left: -60%; }
+    100% { left: 160%; }
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .corner {
+    position: absolute;
+    width: 16px; height: 16px;
+    border-color: rgba(0,255,180,0.4);
+    border-style: solid;
+    pointer-events: none;
+  }
+  .corner-tl { top: 10px; left: 10px; border-width: 2px 0 0 2px; border-radius: 3px 0 0 0; }
+  .corner-tr { top: 10px; right: 10px; border-width: 2px 2px 0 0; border-radius: 0 3px 0 0; }
+  .corner-bl { bottom: 10px; left: 10px; border-width: 0 0 2px 2px; border-radius: 0 0 0 3px; }
+  .corner-br { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; border-radius: 0 0 3px 0; }
+
+  /* Pulse animation for high risk rows */
+  @keyframes pulse-red {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: rgba(239, 68, 68, 0.1); }
+  }
+  .animate-pulse-red {
+    animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
