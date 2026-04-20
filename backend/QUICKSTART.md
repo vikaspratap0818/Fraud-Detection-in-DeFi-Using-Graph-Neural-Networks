@@ -210,6 +210,38 @@ curl -X POST "http://localhost:8000/risk" \
 
 ---
 
+## Security Considerations
+
+### Authentication & Authorization
+- **API Key Header**: All sensitive endpoints (`/train`, `/batch-risk`) must require authentication via an `API_KEY_HEADER` (e.g., `X-API-Key`)
+- **Verification**: Implement a `verify_api_key()` function that validates the API key before processing sensitive operations
+- **Training Endpoint Protection**: The `/train` endpoint must be protected with role-based access control (RBAC) to prevent unauthorized model retraining
+
+### Input Validation
+- **Ethereum Address Validation**: Validate address format on both `/risk` and `/batch-risk` endpoints before processing
+  - Use checksum validation (EIP-55) where applicable
+  - Reject malformed addresses with clear error messages
+- **Recommended Library**: Use `eth-keys` or similar for address validation
+
+### Rate Limiting
+- **Prediction Endpoints**: Implement rate limiting for `/risk` and `/batch-risk` to prevent abuse and DoS attacks
+- **Recommended Tools**: FastAPI middleware like `slowapi` or `pyrate-limiter`
+- **Suggested Limits**: 100 requests per minute per API key
+
+### HTTPS & Environment Variables
+- **Production**: Always enforce HTTPS in production deployments
+- **Credentials**: Source sensitive configuration (API keys, database credentials) from environment variables only
+- **Secret Management**: Never hardcode secrets in code or configuration files
+- **Recommended Approach**: Use `.env` for local development (with `.env` in `.gitignore`) and managed secrets services for production
+
+### Recommended Libraries & Middleware
+- **FastAPI Security**: Use `fastapi.security` for OAuth2 and API key authentication schemes
+- **Rate Limiting**: `pip install slowapi` for rate limiting middleware
+- **Address Validation**: `pip install eth-keys` for Ethereum address validation
+- **CORS**: Restrict `allow_origins` to trusted frontend domains only
+
+---
+
 ## Common Tasks
 
 ### Task 1: Retrain Model with Updated Data

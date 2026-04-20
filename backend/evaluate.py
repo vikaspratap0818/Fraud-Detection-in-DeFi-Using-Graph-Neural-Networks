@@ -35,6 +35,7 @@ def plot_roc_curve(y_true, y_pred, save_path='../results/roc_curve.png'):
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     print(f"ROC curve saved to {save_path}")
+    plt.close()  # Clean up figure to prevent memory leaks
     
 
 def plot_precision_recall_curve(y_true, y_pred, save_path='../results/pr_curve.png'):
@@ -55,6 +56,7 @@ def plot_precision_recall_curve(y_true, y_pred, save_path='../results/pr_curve.p
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     print(f"PR curve saved to {save_path}")
+    plt.close()  # Clean up figure to prevent memory leaks
 
 def plot_confusion_matrix(y_true, y_pred, save_path='../results/confusion_matrix.png'):
     """Plot confusion matrix"""
@@ -87,6 +89,7 @@ def plot_confusion_matrix(y_true, y_pred, save_path='../results/confusion_matrix
     plt.tight_layout()
     plt.savefig(save_path, dpi=300, bbox_inches='tight')
     print(f"Confusion matrix saved to {save_path}")
+    plt.close()  # Clean up figure to prevent memory leaks
 
 def plot_score_distribution(y_true, y_pred, save_path='../results/score_distribution.png'):
     """Plot prediction score distribution"""
@@ -106,7 +109,8 @@ def plot_score_distribution(y_true, y_pred, save_path='../results/score_distribu
     
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     plt.tight_layout()
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.savefig(save_path, dpi=300, bbox_inches='tigh
+    plt.close()  # Clean up figure to prevent memory leakst')
     print(f"Score distribution saved to {save_path}")
 
 def evaluate_and_visualize(model_path, data_dir='../data', results_dir='../results'):
@@ -119,9 +123,14 @@ def evaluate_and_visualize(model_path, data_dir='../data', results_dir='../resul
     print("\nLoading preprocessed data...")
     X_scaled, y, edge_index, node_mapping, scaler = load_preprocessed_data(data_dir)
     
-    # Load model
+    # Load model (use safe weights_only loading if available, else warn user)
     print("Loading model...")
-    checkpoint = torch.load(model_path, map_location=device)
+    try:
+        checkpoint = torch.load(model_path, map_location=device, weights_only=True)
+    except (RuntimeError, TypeError):
+        # weights_only not supported in older PyTorch versions
+        print("Warning: Loading with weights_only=True failed. Using standard load (PyTorch < 2.0).")
+        checkpoint = torch.load(model_path, map_location=device)
     config = checkpoint['config']
     
     model = create_model(
@@ -186,13 +195,18 @@ def evaluate_and_visualize(model_path, data_dir='../data', results_dir='../resul
     print(f"Specificity: {specificity:.4f}")
     print("="*60 + "\n")
     
-    # Generate visualizations
+    # Generate visualizations only if both classes are present
     print("Generating visualizations...")
     os.makedirs(results_dir, exist_ok=True)
     
-    plot_roc_curve(y, probs, f'{results_dir}/roc_curve.png')
-    plot_precision_recall_curve(y, probs, f'{results_dir}/pr_curve.png')
-    plot_confusion_matrix(y, preds_class, f'{results_dir}/confusion_matrix.png')
+    if len(np.unique(y)) > 1:
+        plot_roc_curve(y, probs, f'{results_dir}/roc_curve.png')
+        plot_precision_recall_curve(y, probs, f'{results_dir}/pr_curve.png')
+        plot_confusion_matrix(y, preds_class, f'{results_dir}/confusion_matrix.png')
+    else:
+        print(f"Warning: Only one class present in data ({np.unique(y)[0]}), skipping ROC/PR/confusion matrix plots.")
+    
+    # Always plot score distribution
     plot_score_distribution(y, probs, f'{results_dir}/score_distribution.png')
     
     # Save summary report

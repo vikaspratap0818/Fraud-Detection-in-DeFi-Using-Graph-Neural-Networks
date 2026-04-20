@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, GraphConv, global_mean_pool
 from torch_geometric.data import Data, DataLoader
+import numpy as np
+import copy
 from sklearn.metrics import roc_auc_score, precision_recall_fscore_support, confusion_matrix
 import numpy as np
 
@@ -16,10 +18,13 @@ class DeFiFraudGNN(nn.Module):
     - Output: fraud probability
     """
     
-    def __init__(self, num_features, hidden_dim=64, embedding_dim=32, num_layers=3, dropout=0.3):
+import copy
+
+    def __init__(self, num_features, num_nodes=10000, hidden_dim=64, embedding_dim=32, num_layers=3, dropout=0.3):
         super(DeFiFraudGNN, self).__init__()
         
         self.num_features = num_features
+        self.num_nodes = num_nodes  # Store for potential use
         self.hidden_dim = hidden_dim
         self.embedding_dim = embedding_dim
         self.num_layers = num_layers
@@ -28,8 +33,8 @@ class DeFiFraudGNN(nn.Module):
         # Input projection layer
         self.input_projection = nn.Linear(num_features, hidden_dim)
         
-        # Node embedding layer to create graph embeddings
-        self.node_embedding = nn.Embedding(10000, embedding_dim)  # For up to 10k nodes
+        # Node embedding layer with variable size based on actual number of nodes
+        self.node_embedding = nn.Embedding(num_nodes, embedding_dim)  # Use num_nodes parameter
         
         # GCN layers for feature propagation
         self.gcn_layers = nn.ModuleList()
@@ -170,9 +175,10 @@ class FraudDetectionTrainer:
         
         # Weighted loss for imbalanced data
         y = train_data['y']
+        pos_count = max(1, np.sum(y == 1))  # Guard against zero positives
         class_weights = torch.FloatTensor([
             1.0,
-            len(y) / (2 * np.sum(y == 1))
+            len(y) / (2 * pos_count)  # Safe from division by zero
         ]).to(self.device)
         
         criterion = nn.CrossEntropyLoss(weight=class_weights)
@@ -185,7 +191,8 @@ class FraudDetectionTrainer:
             
             if val_auc > self.best_val_auc:
                 self.best_val_auc = val_auc
-                self.best_model_state = self.model.state_dict().copy()
+                # Deep copy the state dict to avoid tensor reference changes during training
+                self.best_model_state = copy.deepcopy(self.model.state_dict())
             
             if (epoch + 1) % 10 == 0:
                 print(f"Epoch {epoch+1}/{epochs} | "
@@ -237,16 +244,21 @@ class FraudDetectionTrainer:
             
         return metrics, preds, preds_class
 
-def create_model(num_features, num_nodes=1000, hidden_dim=64, embedding_dim=32, 
+def create_model(num_features, num_nodes=10000, hidden_dim=64, embedding_dim=32, 
                  num_layers=3, dropout=0.3, device='cpu'):
-    """Factory function to create GNN model"""
+    """Factory function to create GNN model and move to device"""
     model = DeFiFraudGNN(
         num_features=num_features,
+        num_nodes=num_nodes,  # Pass num_nodes to model
         hidden_dim=hidden_dim,
         embedding_dim=embedding_dim,
         num_layers=num_layers,
         dropout=dropout
     )
+    # Ensure model is on the correct device
+    if not isinstance(device, torch.device):
+        device = torch.device(device)
+    model = model.to(device)
     return model
 
 if __name__ == "__main__":

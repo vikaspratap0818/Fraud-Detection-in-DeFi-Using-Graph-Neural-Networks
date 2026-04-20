@@ -71,16 +71,37 @@ class DeFiTransactionDataLoader:
     def _create_graph_edges(self):
         """Create edge indices for graph construction"""
         # Create edges based on transaction similarity and patterns
-        # This is a simplified version - in production, you'd use actual transaction data
         n_nodes = len(self.node_to_idx)
         
-        # Start with identity edges (self-loops)
         edges = []
+        
+        # Start with identity edges (self-loops) - important for GNN message passing
         for i in range(n_nodes):
             edges.append([i, i])
         
-        # Add edges based on similarity (simplified approach)
-        # In real scenario, use transaction flow data
+        # Add inter-node edges based on feature similarity (k-NN approach)
+        # This creates meaningful connections between similar wallet behaviors
+        if hasattr(self, 'node_features') and self.node_features is not None:
+            # Compute cosine similarity between node features
+            from sklearn.metrics.pairwise import cosine_similarity
+            similarity_matrix = cosine_similarity(self.node_features)
+            
+            # Add edges to top-k most similar nodes (excluding self)
+            k = min(5, n_nodes - 1)  # Connect to 5 nearest neighbors
+            for i in range(n_nodes):
+                # Get indices of k most similar nodes (sorted by similarity)
+                similar_indices = np.argsort(similarity_matrix[i])[-k-1:-1][::-1]
+                for j in similar_indices:
+                    if i != j:
+                        # Add bidirectional edges for undirected graph
+                        edges.append([i, j])
+                        edges.append([j, i])
+        
+        # Remove duplicates while preserving edge direction
+        edges = list(set(map(tuple, edges)))
+        edges = [list(edge) for edge in edges]
+        
+        # Convert to tensor
         edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
         
         return edge_index
@@ -104,13 +125,23 @@ class DeFiTransactionDataLoader:
         
         return (X_train, y_train), (X_val, y_val), (X_test, y_test)
     
-    def save_preprocessed_data(self, X_scaled, y, edge_index, save_dir='../data'):
-        """Save preprocessed data for training"""
+    def save_preprocessed_data(self, X_scaled, y, edge_index, train_test_split=None, save_dir='../data'):
+        """Save preprocessed data and splits for training"""
         os.makedirs(save_dir, exist_ok=True)
         
         np.save(f'{save_dir}/X_scaled.npy', X_scaled)
         np.save(f'{save_dir}/y.npy', y)
         np.save(f'{save_dir}/edge_index.npy', edge_index.numpy())
+        
+        # Save train/val/test split indices if provided
+        if train_test_split is not None:
+            (X_train, y_train), (X_val, y_val), (X_test, y_test) = train_test_split
+            np.save(f'{save_dir}/X_train.npy', X_train)
+            np.save(f'{save_dir}/y_train.npy', y_train)
+            np.save(f'{save_dir}/X_val.npy', X_val)
+            np.save(f'{save_dir}/y_val.npy', y_val)
+            np.save(f'{save_dir}/X_test.npy', X_test)
+            np.save(f'{save_dir}/y_test.npy', y_test)
         
         # Save mappings
         with open(f'{save_dir}/node_mapping.pkl', 'wb') as f:

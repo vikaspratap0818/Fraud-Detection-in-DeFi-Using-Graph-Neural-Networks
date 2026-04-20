@@ -13,22 +13,26 @@ export async function POST(req: NextRequest) {
 
     await connectToDatabase();
 
-    const existingUser = await User.findOne({ email });
+    // Normalize email to lowercase for consistent lookups
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return NextResponse.json({ message: "User already exists with that email" }, { status: 400 });
+      // Return generic error to prevent user enumeration
+      return NextResponse.json({ message: "Registration failed" }, { status: 400 });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password: hashedPassword,
     });
 
     return NextResponse.json({ message: "User created successfully" }, { status: 201 });
   } catch (error) {
     console.error("Registration error:", error);
-    return NextResponse.json({ message: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ message: "Registration failed" }, { status: 400 });
   }
 }

@@ -4,6 +4,7 @@ import torch.nn as nn
 import argparse
 from datetime import datetime
 import os
+import numpy as np
 
 from data_loader import DeFiTransactionDataLoader, load_preprocessed_data
 from model import create_model, FraudDetectionTrainer
@@ -45,8 +46,8 @@ def main():
         # Split data
         train_data, val_data, test_data = loader.prepare_train_val_test_split(X_scaled, y)
         
-        # Save preprocessed data
-        loader.save_preprocessed_data(X_scaled, y, edge_index)
+        # Save preprocessed data with splits for reproducibility
+        loader.save_preprocessed_data(X_scaled, y, edge_index, train_test_split=(train_data, val_data, test_data))
         
         print("Dataset preprocessed and saved!")
         
@@ -131,6 +132,7 @@ def main():
         'model_state': model.state_dict(),
         'config': {
             'num_features': X_scaled.shape[1],
+            'num_nodes': X_scaled.shape[0],  # Save num_nodes for inference
             'hidden_dim': args.hidden_dim,
             'embedding_dim': args.embedding_dim,
             'num_layers': args.num_layers,
@@ -161,8 +163,8 @@ def main():
         f.write(f"  Weight Decay: {args.weight_decay}\n")
         f.write(f"\nData:\n")
         f.write(f"  Total Samples: {len(y)}\n")
-        f.write(f"  Fraud Cases: {sum(y==1)}\n")
-        f.write(f"  Legitimate Cases: {sum(y==0)}\n")
+        f.write(f"  Fraud Cases: {int(np.sum(y==1))}\n")
+        f.write(f"  Legitimate Cases: {int(np.sum(y==0))}\n")
         f.write(f"\nTest Metrics:\n")
         f.write(f"  AUC: {metrics['auc']:.4f}\n")
         f.write(f"  Precision: {metrics['precision']:.4f}\n")

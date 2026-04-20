@@ -8,7 +8,9 @@ import numpy as np
 import pickle
 import os
 import json
+import asyncio
 from datetime import datetime
+from threading import Lock
 
 from model import DeFiFraudGNN, FraudDetectionTrainer, create_model
 from data_loader import DeFiTransactionDataLoader, load_preprocessed_data
@@ -20,16 +22,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Add CORS middleware
+# Define trusted origins - configure via environment variable in production
+TRUSTED_ORIGINS = os.getenv('TRUSTED_ORIGINS', 'http://localhost:3000').split(',')
+
+# Add CORS middleware with restricted origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=TRUSTED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
-# Global variables
+# Global variables with concurrency protection
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = None
 scaler = None
@@ -37,6 +42,14 @@ node_mapping = None
 edge_index = None
 X_scaled = None
 y = None
+
+# Concurrency control: use asyncio.Lock for async endpoints and threading.Lock for background jobs
+model_lock = asyncio.Lock()
+training_lock = Lock()
+training_in_progress = False
+
+# Data directory configuration
+DEFAULT_DATA_DIR = os.getenv('DATA_DIR', '../data')
 
 print(f"Using device: {device}")
 
@@ -151,16 +164,17 @@ def get_connected_wallets(address: str, top_k: int = 5) -> List[Dict]:
     connected.update(edges[1, edges[0] == node_idx])  # Incoming edges
     connected.update(edges[0, edges[1] == node_idx])  # Outgoing edges
     
-    # Sort by risk score
+    # Build full list of connected risks, sort by risk score, then take top_k
     connected_risks = [
         {
             'address': node_mapping['idx_to_node'][idx],
             'risk_score': float(risk_scores[idx]),
             'risk_label': get_risk_label(risk_scores[idx])
         }
-        for idx in list(connected)[:top_k]
+        for idx in connected  # Use full set, not sliced
     ]
     
+    # Sort by risk score descending and return top_k
     connected_risks.sort(key=lambda x: x['risk_score'], reverse=True)
     
     return connected_risks[:top_k]
@@ -303,7 +317,7 @@ async def train_model(request: TrainingRequest, background_tasks: BackgroundTask
             
             # Reload global model
             global model, scaler, node_mapping, edge_index, X_scaled, y
-            X_scaled, y, edge_index, node_mapping, scaler = load_preprocessed_data()
+            X_scaled, y, edge_index, node_mapping, scaler = load_preprocessed_data(DEFAULT_DATA_DIR)
             model = train_model_obj
             model.eval()
             
@@ -351,12 +365,14 @@ async def get_statistics():
     if X_scaled is None:
         raise HTTPException(status_code=503, detail="Data not loaded")
     
+    fraud_percentage = float(np.sum(y == 1) / max(1, len(y)) * 100) if len(y) > 0 else 0.0
+    
     return {
         "num_addresses": X_scaled.shape[0],
         "num_features": X_scaled.shape[1],
         "fraud_cases": int(np.sum(y == 1)),
         "legitimate_cases": int(np.sum(y == 0)),
-        "fraud_percentage": float(np.sum(y == 1) / len(y) * 100),
+        "fraud_percentage": fraud_percentage,
         "edges": edge_index.shape[1] if edge_index is not None else 0,
         "device": str(device)
     }

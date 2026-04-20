@@ -18,7 +18,7 @@ const authOptions = {
       },
       async authorize(credentials, req) {
         if (!credentials?.username || !credentials.password) {
-          throw new Error('Please enter your email and password');
+          throw new Error('Invalid email or password');
         }
 
         const connectToDatabase = (await import('@/lib/mongodb')).default;
@@ -29,13 +29,15 @@ const authOptions = {
 
         const user = await User.findOne({ email: credentials.username }).select('+password');
         
-        if (!user) {
-          throw new Error('No user found with that email address');
-        }
-
-        const isValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isValid) {
-          throw new Error('Invalid password provided');
+        // Perform bcrypt compare with dummy hash if user not found (timing attack prevention)
+        const dummyHash = '$2a$10$DummyHashToPretendUserDoesntExist';
+        const isValid = user ? 
+          await bcrypt.compare(credentials.password, user.password) :
+          await bcrypt.compare(credentials.password, dummyHash);
+        
+        // Use generic error for both cases to prevent user enumeration
+        if (!user || !isValid) {
+          throw new Error('Invalid email or password');
         }
 
         return { id: user._id.toString(), name: user.name, email: user.email };

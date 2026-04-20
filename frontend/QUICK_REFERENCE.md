@@ -111,8 +111,17 @@ wallet = {
 npm run dev
 
 # Build (increase memory if needed)
-set NODE_OPTIONS=--max-old-space-size=8192
+# Option 1: Using npm scripts (cross-platform)
 npm run build
+
+# Option 2: Manually set environment variable for a single build
+# Unix/macOS:
+NODE_OPTIONS=--max-old-space-size=8192 npm run build
+
+# Windows (PowerShell):
+# $env:NODE_OPTIONS='--max-old-space-size=8192'; npm run build
+
+# Windows (CMD) - already configured in package.json with cross-env
 
 # Run tests
 npm test
@@ -147,7 +156,7 @@ Coinbase • Argent • Rainbow • Solana
 | MetaMask not detected | Refresh page, enable extension |
 | Balance shows 0 | Switch to Sepolia faucet: https://sepoliafaucet.com/ |
 | Connection fails | Check internet, make sure MetaMask unlocked |
-| Update to large build | `set NODE_OPTIONS=--max-old-space-size=8192` |
+| Update to large build | Use `npm run build` (pre-configured with NODE_OPTIONS in package.json) or manually set via cross-env |
 
 ## Real-Time Features
 
@@ -218,10 +227,16 @@ Need actual ETH from exchange
 
 ## Performance Tips
 
-🚀 Optimize build:
+🚀 Optimize build (memory pre-configured):
 ```bash
-set NODE_OPTIONS=--max-old-space-size=8192
+# Build command already includes NODE_OPTIONS via cross-env in package.json
 npm run build
+
+# To manually increase memory on Unix/macOS:
+NODE_OPTIONS=--max-old-space-size=8192 npm run build
+
+# To manually increase memory on Windows (PowerShell):
+$env:NODE_OPTIONS='--max-old-space-size=8192'; npm run build
 ```
 
 🎯 Lean bundle by removing unused wagmi parts if needed

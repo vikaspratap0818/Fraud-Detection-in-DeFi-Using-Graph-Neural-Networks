@@ -170,7 +170,7 @@ Assess fraud risk for a single wallet.
       "risk_label": "high"
     }
   ],
-  "timestamp": "2024-03-18T10:30:00"
+  "timestamp": "2024-03-18T10:30:00Z"
 }
 ```
 
@@ -258,7 +258,7 @@ Start background model training job.
   "status": "training_started",
   "metrics": {},
   "model_path": "../models/gnn_model.pt",
-  "timestamp": "2024-03-18T10:30:00"
+  "timestamp": "2024-03-18T10:30:00Z"
 }
 ```
 
@@ -387,7 +387,14 @@ data/
 ### Model not loading
 ```bash
 # Check if model file exists
+# Unix/macOS:
 ls -la ../models/gnn_model.pt
+
+# Windows (PowerShell):
+# Get-Item ..\\models\\gnn_model.pt
+
+# Windows (CMD):
+# dir ..\\models\\gnn_model.pt
 
 # Verify data preprocessing
 python data_loader.py
@@ -405,7 +412,15 @@ python train.py --hidden_dim 32 --embedding_dim 16
 python train.py --hidden_dim 128 --num_layers 4 --epochs 200
 
 # Or check data quality
-python -c "from data_loader import *; loader = DeFiTransactionDataLoader(); df = loader.load_dataset(); print(df.describe())"
+
+# Unix/Linux/macOS:
+grep "0xYOUR_ADDRESS" ../data/transaction_dataset.csv
+
+# Windows (PowerShell):
+# Select-String -Path "..\\data\\transaction_dataset.csv" -Pattern "0xYOUR_ADDRESS"
+
+# Windows (CMD):
+# findstr "0xYOUR_ADDRESS" ..\\data\\port *; loader = DeFiTransactionDataLoader(); df = loader.load_dataset(); print(df.describe())"
 ```
 
 ### Address not found error

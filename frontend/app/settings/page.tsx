@@ -168,13 +168,13 @@ export default function SettingsPage() {
                       <div className="form-group" style={{ margin: 0, opacity: 1 }}>
                         <label>Slack Webhook URL</label>
                         <div className="input-wrap">
-                          <input type="text" placeholder="WEBHOOK_URL_PLACEHOLDER" className="font-mono text-sm tracking-wide" />
+                          <input type="password" placeholder="Enter your webhook URL (stored securely)" className="font-mono text-sm tracking-wide" />
                         </div>
                       </div>
                       <div className="form-group" style={{ margin: 0, opacity: 1 }}>
                         <label>Discord Webhook URL</label>
                         <div className="input-wrap">
-                          <input type="text" placeholder="https://discord.com/api/webhooks/..." className="font-mono text-sm tracking-wide" />
+                          <input type="password" placeholder="Enter your webhook URL (stored securely)" className="font-mono text-sm tracking-wide" />
                         </div>
                       </div>
                     </div>

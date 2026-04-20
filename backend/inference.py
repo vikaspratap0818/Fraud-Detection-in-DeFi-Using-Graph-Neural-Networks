@@ -10,13 +10,20 @@ from model import create_model
 from data_loader import load_preprocessed_data
 
 def load_model(model_path, device='cpu'):
-    """Load trained model"""
-    checkpoint = torch.load(model_path, map_location=device)
+    """Load trained model safely"""
+    try:
+        checkpoint = torch.load(model_path, map_location=device, weights_only=True)
+    except (RuntimeError, TypeError):
+        # weights_only not supported in PyTorch < 2.0
+        print("Warning: Loading with weights_only=True failed. Using standard load.")
+        checkpoint = torch.load(model_path, map_location=device)
     
     config = checkpoint['config']
+    num_nodes = config.get('num_nodes', config.get('num_features', 10000))  # Get from config, fallback to num_features
+    
     model = create_model(
         num_features=config['num_features'],
-        num_nodes=10000,
+        num_nodes=num_nodes,
         hidden_dim=config['hidden_dim'],
         embedding_dim=config['embedding_dim'],
         num_layers=config['num_layers'],
@@ -29,8 +36,8 @@ def load_model(model_path, device='cpu'):
     
     return model
 
-def predict_wallet_risk(address, model, X_scaled, edge_index, node_mapping, device='cpu'):
-    """Predict fraud risk for a wallet"""
+def predict_wallet_risk(address, model, X_tensor, edge_index_tensor, node_mapping, device='cpu'):
+    """Predict fraud risk for a wallet (uses pre-converted tensors for efficiency)"""
     
     if address not in node_mapping['node_to_idx']:
         return None, "Address not found in training data"
@@ -38,11 +45,8 @@ def predict_wallet_risk(address, model, X_scaled, edge_index, node_mapping, devi
     node_idx = node_mapping['node_to_idx'][address]
     
     try:
-        x = torch.FloatTensor(X_scaled).to(device)
-        edge_idx = edge_index.to(device)
-        
         with torch.no_grad():
-            logits = model(x, edge_idx)
+            logits = model(X_tensor, edge_index_tensor)
             probs = torch.softmax(logits, dim=1)
             fraud_prob = probs[node_idx, 1].item()
             legit_prob = probs[node_idx, 0].item()
@@ -61,12 +65,12 @@ def predict_wallet_risk(address, model, X_scaled, edge_index, node_mapping, devi
     except Exception as e:
         return None, str(e)
 
-def batch_predict(addresses, model, X_scaled, edge_index, node_mapping, device='cpu'):
-    """Predict fraud risk for multiple wallets"""
+def batch_predict(addresses, model, X_tensor, edge_index_tensor, node_mapping, device='cpu'):
+    """Predict fraud risk for multiple wallets (uses pre-converted tensors)"""
     
     results = []
     for address in addresses:
-        result, error = predict_wallet_risk(address, model, X_scaled, edge_index, node_mapping, device)
+        result, error = predict_wallet_risk(address, model, X_tensor, edge_index_tensor, node_mapping, device)
         if error:
             results.append({'address': address, 'error': error})
         else:
@@ -93,10 +97,14 @@ def main():
     model = load_model(args.model_path, device)
     X_scaled, y, edge_index, node_mapping, scaler = load_preprocessed_data(args.data_dir)
     
+    # Pre-convert tensors for efficient reuse across multiple predictions
+    X_tensor = torch.FloatTensor(X_scaled).to(device)
+    edge_index_tensor = edge_index.to(device)
+    
     # Prediction
     if args.address:
         print(f"\nPredicting fraud risk for: {args.address}")
-        result, error = predict_wallet_risk(args.address, model, X_scaled, edge_index, node_mapping, device)
+        result, error = predict_wallet_risk(args.address, model, X_tensor, edge_index_tensor, node_mapping, device)
         
         if error:
             print(f"Error: {error}")
@@ -115,7 +123,7 @@ def main():
         with open(args.addresses_file, 'r') as f:
             addresses = [line.strip() for line in f.readlines()]
         
-        results = batch_predict(addresses, model, X_scaled, edge_index, node_mapping, device)
+        results = batch_predict(addresses, model, X_tensor, edge_index_tensor, node_mapping, device)
         
         print("\n" + "="*70)
         print(f"{'Address':<45} {'Risk Score':<15} {'Label':<10}")
