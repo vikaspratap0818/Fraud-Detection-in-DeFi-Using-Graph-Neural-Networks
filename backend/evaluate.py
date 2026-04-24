@@ -109,7 +109,7 @@ def plot_score_distribution(y_true, y_pred, save_path='../results/score_distribu
     
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     plt.tight_layout()
-    plt.savefig(save_path, dpi=300, bbox_inches='tigh
+    plt.savefig(save_path, dpi=300, bbox_inches='tigh')
     plt.close()  # Clean up figure to prevent memory leakst')
     print(f"Score distribution saved to {save_path}")
 

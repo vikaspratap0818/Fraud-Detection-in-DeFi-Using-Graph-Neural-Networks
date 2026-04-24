@@ -50,7 +50,7 @@ function LoginForm() {
     setLoading(true);
     setErrorMsg('');
     const res = await signIn('credentials', { 
-      username: email, 
+      email: email, 
       password,
       redirect: false
     });

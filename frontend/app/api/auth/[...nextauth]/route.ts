@@ -13,11 +13,11 @@ const authOptions = {
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
-        username: { label: "Username", type: "text", placeholder: "jsmith" },
+        email: { label: "Email", type: "email", placeholder: "your@email.com" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials, req) {
-        if (!credentials?.username || !credentials.password) {
+        if (!credentials?.email || !credentials.password) {
           throw new Error('Invalid email or password');
         }
 
@@ -27,7 +27,9 @@ const authOptions = {
 
         await connectToDatabase();
 
-        const user = await User.findOne({ email: credentials.username }).select('+password');
+        // Normalize email like in register
+        const normalizedEmail = credentials.email.trim().toLowerCase();
+        const user = await User.findOne({ email: normalizedEmail }).select('+password');
         
         // Perform bcrypt compare with dummy hash if user not found (timing attack prevention)
         const dummyHash = '$2a$10$DummyHashToPretendUserDoesntExist';
@@ -44,6 +46,14 @@ const authOptions = {
       }
     })
   ],
+  callbacks: {
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.sub as string;
+      }
+      return session;
+    },
+  },
   pages: {
     signIn: '/login',
   },
