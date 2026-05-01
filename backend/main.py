@@ -104,32 +104,41 @@ def load_model_and_data():
     try:
         data_dir = '../data'
         
+        # Check if preprocessed data exists, if not, preprocess it
+        if not os.path.exists(f'{data_dir}/X_scaled.npy'):
+            print("Preprocessed data not found. Preprocessing dataset...")
+            loader = DeFiTransactionDataLoader()
+            df = loader.load_dataset()
+            X_scaled_local, features = loader.preprocess_features()
+            y_local = loader.extract_labels()
+            edge_index_local = loader.build_transaction_graph()
+            
+            # Save preprocessed data
+            loader.save_preprocessed_data(X_scaled_local, y_local, edge_index_local)
+            print("Data preprocessing completed and saved.")
+        
         # Load preprocessed data
-        if os.path.exists(f'{data_dir}/X_scaled.npy'):
-            X_scaled, y, edge_index, node_mapping, scaler = load_preprocessed_data(data_dir)
-            
-            # Create and load model
-            model = create_model(
-                num_features=X_scaled.shape[1],
-                num_nodes=X_scaled.shape[0],
-                device=device
-            )
-            
-            # Load weights if available
-            model_path = '../models/gnn_model.pt'
-            if os.path.exists(model_path):
-                checkpoint = torch.load(model_path, map_location=device)
-                if isinstance(checkpoint, dict) and 'model_state' in checkpoint:
-                    model.load_state_dict(checkpoint['model_state'])
-                else:
-                    model.load_state_dict(checkpoint)
-                print(f"Model loaded from {model_path}")
-            
-            model.eval()
-            return True
-        else:
-            print("Preprocessed data not found. Run training first.")
-            return False
+        X_scaled, y, edge_index, node_mapping, scaler = load_preprocessed_data(data_dir)
+        
+        # Create and load model
+        model = create_model(
+            num_features=X_scaled.shape[1],
+            num_nodes=X_scaled.shape[0],
+            device=device
+        )
+        
+        # Load weights if available
+        model_path = '../models/gnn_model.pt'
+        if os.path.exists(model_path):
+            checkpoint = torch.load(model_path, map_location=device)
+            if isinstance(checkpoint, dict) and 'model_state' in checkpoint:
+                model.load_state_dict(checkpoint['model_state'])
+            else:
+                model.load_state_dict(checkpoint)
+            print(f"Model loaded from {model_path}")
+        
+        model.eval()
+        return True
             
     except Exception as e:
         print(f"Error loading model: {e}")
@@ -375,6 +384,33 @@ async def get_statistics():
         "fraud_percentage": fraud_percentage,
         "edges": edge_index.shape[1] if edge_index is not None else 0,
         "device": str(device)
+    }
+
+@app.get("/fraud-stats")
+async def get_fraud_statistics():
+    """Get fraud statistics for visualization"""
+    
+    if y is None:
+        raise HTTPException(status_code=503, detail="Data not loaded")
+    
+    fraud_count = int(np.sum(y == 1))
+    legitimate_count = int(np.sum(y == 0))
+    total_count = len(y)
+    fraud_percentage = float(fraud_count / max(1, total_count) * 100) if total_count > 0 else 0.0
+    
+    return {
+        "labels": ["Non-Fraudulent", "Fraudulent"],
+        "data": [legitimate_count, fraud_count],
+        "percentages": [100 - fraud_percentage, fraud_percentage],
+        "total": total_count,
+        "fraud_rate": fraud_percentage,
+        "subgraph": {
+            "nodes": [
+                {"id": "fraud", "label": "Fraudulent", "value": fraud_count, "color": "#ff6b6b"},
+                {"id": "legitimate", "label": "Legitimate", "value": legitimate_count, "color": "#00ffb4"}
+            ],
+            "links": []
+        }
     }
 
 @app.get("/embeddings/{address}")

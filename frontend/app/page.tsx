@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { MetricsRow } from '@/components/MetricsRow';
-import { GraphVisualizer } from '@/components/GraphVisualizer';
+import { FraudStatsChart } from '@/components/FraudStatsChart';
 import { TransactionFeed } from '@/components/TransactionFeed';
 import { Shield, Zap, Info } from 'lucide-react';
 
@@ -25,10 +25,9 @@ export default function Dashboard() {
 
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/risk', {
-          method: 'POST',
+        const res = await fetch('/api/fraud-stats', {
+          method: 'GET',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ wallet: 'A' }),
         });
 
         if (!res.ok) {
@@ -38,7 +37,7 @@ export default function Dashboard() {
 
         const data = await res.json();
         if (data && data.subgraph) {
-          setGraphData(data.subgraph);
+          setGraphData(data);
         }
       } catch (error) {
         console.error("Failed to fetch graph data:", error);
@@ -87,7 +86,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 min-h-[600px]">
           {/* Center Visualization */}
           <div className="xl:col-span-2 space-y-4 flex flex-col">
-            {graphData ? <GraphVisualizer data={graphData} /> : (
+            {graphData ? <FraudStatsChart data={graphData} /> : (
               <div className="card h-[500px] flex items-center justify-center">
                 <span className="spinner" style={{ width: '30px', height: '30px', borderTopColor: '#00ffb4' }}></span>
               </div>
@@ -103,7 +102,7 @@ export default function Dashboard() {
                   <p className="text-xs text-zinc-400 mt-1">A high-density subgraph of 12 wallets was flagged as a potential Sybil attack ring on Uniswap V3.</p>
                 </div>
               </div>
-              <button className="btn-primary" style={{ width: 'auto', padding: '10px 24px' }}>
+              <button onClick={() => alert('Cluster review feature coming soon!')} className="btn-primary" style={{ width: 'auto', padding: '10px 24px' }}>
                 Review Cluster
               </button>
             </div>

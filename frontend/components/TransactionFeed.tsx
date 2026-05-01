@@ -88,7 +88,7 @@ export const TransactionFeed = () => {
       </div>
 
       <div className="p-3 border-t border-[rgba(0,255,180,0.15)] bg-[#08121c]/60">
-        <button className="w-full py-2.5 rounded text-[10px] font-bold text-[#00ffb4] bg-[rgba(0,255,180,0.05)] border border-[rgba(0,255,180,0.2)] uppercase tracking-widest hover:bg-[rgba(0,255,180,0.1)] hover:border-[rgba(0,255,180,0.4)] transition-all">
+        <button onClick={() => window.open('/transactions', '_blank')} className="w-full py-2.5 rounded text-[10px] font-bold text-[#00ffb4] bg-[rgba(0,255,180,0.05)] border border-[rgba(0,255,180,0.2)] uppercase tracking-widest hover:bg-[rgba(0,255,180,0.1)] hover:border-[rgba(0,255,180,0.4)] transition-all">
           View Full Ledger
         </button>
       </div>

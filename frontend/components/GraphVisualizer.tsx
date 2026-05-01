@@ -56,9 +56,9 @@ export const GraphVisualizer = ({ data }: { data: any }) => {
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={handleZoomIn} className="p-2 bg-[rgba(0,255,180,0.05)] border border-[rgba(0,255,180,0.1)] hover:bg-[rgba(0,255,180,0.1)] rounded text-[#00ffb4] transition-all"><ZoomIn className="w-4 h-4" /></button>
-          <button onClick={handleZoomOut} className="p-2 bg-[rgba(0,255,180,0.05)] border border-[rgba(0,255,180,0.1)] hover:bg-[rgba(0,255,180,0.1)] rounded text-[#00ffb4] transition-all"><ZoomOut className="w-4 h-4" /></button>
-          <button className="p-2 bg-[rgba(0,255,180,0.05)] border border-[rgba(0,255,180,0.1)] hover:bg-[rgba(0,255,180,0.1)] rounded text-[#00ffb4] transition-all ml-2"><Maximize2 className="w-4 h-4" /></button>
+          <button onClick={handleZoomIn} className="p-2 bg-[rgba(0,255,180,0.05)] border border-[rgba(0,255,180,0.1)] hover:bg-[rgba(0,255,180,0.1)] rounded text-[#00ffb4] transition-all" title="Zoom In"><ZoomIn className="w-4 h-4" /></button>
+          <button onClick={handleZoomOut} className="p-2 bg-[rgba(0,255,180,0.05)] border border-[rgba(0,255,180,0.1)] hover:bg-[rgba(0,255,180,0.1)] rounded text-[#00ffb4] transition-all" title="Zoom Out"><ZoomOut className="w-4 h-4" /></button>
+          <button onClick={handleResetView} className="p-2 bg-[rgba(0,255,180,0.05)] border border-[rgba(0,255,180,0.1)] hover:bg-[rgba(0,255,180,0.1)] rounded text-[#00ffb4] transition-all ml-2" title="Fullscreen"><Maximize2 className="w-4 h-4" /></button>
         </div>
       </div>
 
