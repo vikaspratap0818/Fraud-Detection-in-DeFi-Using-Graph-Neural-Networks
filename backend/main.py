@@ -413,6 +413,164 @@ async def get_fraud_statistics():
         }
     }
 
+@app.get("/graph-data")
+async def get_graph_data(limit: int = 100):
+    """Get network graph data for visualization"""
+    
+    if not load_model_and_data():
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    if model is None or X_scaled is None or y is None:
+        raise HTTPException(status_code=503, detail="Model or data not initialized")
+    
+    try:
+        # Get model predictions for all nodes
+        with torch.no_grad():
+            x = torch.FloatTensor(X_scaled).to(device)
+            edge_idx = edge_index.to(device)
+            logits = model(x, edge_idx)
+            probs = torch.softmax(logits, dim=1)
+            fraud_probs = probs[:, 1].cpu().numpy()
+        
+        # Create nodes with predictions
+        nodes = []
+        sample_size = min(limit, len(node_mapping['idx_to_node']))
+        
+        # Strict validation: ensure node data is correct
+        for idx in range(sample_size):
+            if idx not in node_mapping['idx_to_node']:
+                continue
+            
+            address = node_mapping['idx_to_node'][idx]
+            fraud_prob = float(fraud_probs[idx])
+            is_fraud = int(y[idx])
+            
+            # Validate values
+            if not (0 <= fraud_prob <= 1):
+                fraud_prob = max(0, min(1, fraud_prob))
+            
+            node = {
+                "id": f"addr_{idx}",
+                "label": address[:10] + "..." if len(address) > 10 else address,
+                "address": address,
+                "fraud_probability": fraud_prob,
+                "is_fraud": is_fraud,
+                "risk": is_fraud,
+                "val": 5 + (fraud_prob * 15),  # Size based on fraud probability
+                "color": "#ff6b6b" if is_fraud else "#00ffb4"
+            }
+            nodes.append(node)
+        
+        # Build edges from edge_index
+        links = []
+        edges_numpy = edge_index.cpu().numpy()
+        
+        # Create connections for visualized nodes
+        node_ids_in_sample = {idx: f"addr_{idx}" for idx in range(sample_size)}
+        edge_set = set()
+        
+        for src, dst in zip(edges_numpy[0], edges_numpy[1]):
+            if src < sample_size and dst < sample_size and src != dst:
+                edge_key = tuple(sorted([src, dst]))
+                if edge_key not in edge_set:
+                    edge_set.add(edge_key)
+                    links.append({
+                        "source": node_ids_in_sample[src],
+                        "target": node_ids_in_sample[dst]
+                    })
+        
+        return {
+            "nodes": nodes,
+            "links": links,
+            "metadata": {
+                "total_nodes": len(node_mapping['idx_to_node']),
+                "visualized_nodes": len(nodes),
+                "total_edges": len(links),
+                "fraud_nodes": sum(1 for n in nodes if n["is_fraud"]),
+                "legitimate_nodes": sum(1 for n in nodes if not n["is_fraud"])
+            }
+        }
+    
+    except Exception as e:
+        print(f"Error generating graph data: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate graph data: {str(e)}")
+
+@app.get("/validate-data")
+async def validate_data():
+    """Strict data validation endpoint"""
+    
+    if not load_model_and_data():
+        raise HTTPException(status_code=503, detail="Model not loaded")
+    
+    try:
+        validation_result = {
+            "status": "ok",
+            "errors": [],
+            "warnings": [],
+            "data_integrity": {
+                "X_scaled_shape": X_scaled.shape if X_scaled is not None else None,
+                "y_shape": y.shape if y is not None else None,
+                "edge_index_shape": edge_index.shape if edge_index is not None else None,
+                "num_nodes_mapped": len(node_mapping['idx_to_node']) if node_mapping else 0,
+            }
+        }
+        
+        # Validation checks
+        if X_scaled is None:
+            validation_result["errors"].append("X_scaled is None")
+        elif not isinstance(X_scaled, np.ndarray):
+            validation_result["errors"].append(f"X_scaled is not numpy array: {type(X_scaled)}")
+        elif X_scaled.shape[0] == 0:
+            validation_result["errors"].append("X_scaled has 0 rows")
+        
+        if y is None:
+            validation_result["errors"].append("y is None")
+        elif not isinstance(y, np.ndarray):
+            validation_result["errors"].append(f"y is not numpy array: {type(y)}")
+        elif len(y) == 0:
+            validation_result["errors"].append("y has 0 elements")
+        elif not all(yi in [0, 1] for yi in np.unique(y)):
+            validation_result["warnings"].append(f"y contains unexpected values: {np.unique(y)}")
+        
+        if edge_index is None:
+            validation_result["errors"].append("edge_index is None")
+        elif edge_index.shape[0] != 2:
+            validation_result["errors"].append(f"edge_index first dimension is {edge_index.shape[0]}, expected 2")
+        
+        if node_mapping is None:
+            validation_result["errors"].append("node_mapping is None")
+        elif 'node_to_idx' not in node_mapping or 'idx_to_node' not in node_mapping:
+            validation_result["errors"].append("node_mapping missing required keys")
+        
+        if model is None:
+            validation_result["errors"].append("model is None")
+        else:
+            try:
+                num_params = sum(p.numel() for p in model.parameters())
+                validation_result["model_info"] = {
+                    "num_parameters": num_params,
+                    "device": str(device)
+                }
+            except Exception as e:
+                validation_result["warnings"].append(f"Could not count model parameters: {str(e)}")
+        
+        # Shape consistency checks
+        if X_scaled is not None and y is not None:
+            if X_scaled.shape[0] != len(y):
+                validation_result["errors"].append(f"X_scaled rows ({X_scaled.shape[0]}) != y length ({len(y)})")
+        
+        # Set overall status based on errors
+        if validation_result["errors"]:
+            validation_result["status"] = "error"
+        elif validation_result["warnings"]:
+            validation_result["status"] = "warning"
+        
+        return validation_result
+    
+    except Exception as e:
+        print(f"Error during validation: {e}")
+        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
+
 @app.get("/embeddings/{address}")
 async def get_node_embeddings(address: str):
     """Get graph embeddings for a specific address"""

@@ -6,13 +6,17 @@ import { useSession } from 'next-auth/react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { MetricsRow } from '@/components/MetricsRow';
 import { FraudStatsChart } from '@/components/FraudStatsChart';
+import { GraphVisualizer } from '@/components/GraphVisualizer';
 import { TransactionFeed } from '@/components/TransactionFeed';
-import { Shield, Zap, Info } from 'lucide-react';
+import { Shield, Zap, Info, AlertTriangle } from 'lucide-react';
 
 export default function Dashboard() {
   const router = useRouter();
   const { status, data: session } = useSession();
+  const [fraudStatsData, setFraudStatsData] = useState(null);
   const [graphData, setGraphData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -25,22 +29,48 @@ export default function Dashboard() {
 
     const fetchData = async () => {
       try {
-        const res = await fetch('/api/fraud-stats', {
+        setLoading(true);
+        setError(null);
+
+        // Fetch fraud statistics
+        const statsRes = await fetch('/api/fraud-stats', {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
         });
 
-        if (!res.ok) {
-          console.error(`API error! status: ${res.status}`);
-          return;
+        if (!statsRes.ok) {
+          throw new Error(`Failed to fetch fraud statistics: ${statsRes.status}`);
         }
 
-        const data = await res.json();
-        if (data && data.subgraph) {
-          setGraphData(data);
+        const statsData = await statsRes.json();
+        setFraudStatsData(statsData);
+
+        // Fetch network graph data
+        const graphRes = await fetch('/api/graph-data?limit=100', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (!graphRes.ok) {
+          console.warn(`Failed to fetch graph data: ${graphRes.status}`);
+          // Don't fail completely if graph data fails, stats are more important
+          setGraphData(null);
+        } else {
+          const graphJsonData = await graphRes.json();
+          
+          // Strict validation
+          if (graphJsonData.nodes && graphJsonData.links) {
+            setGraphData(graphJsonData);
+          } else {
+            throw new Error('Invalid graph data structure');
+          }
         }
       } catch (error) {
-        console.error("Failed to fetch graph data:", error);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+        console.error("Failed to fetch dashboard data:", errorMsg);
+        setError(errorMsg);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -82,37 +112,90 @@ export default function Dashboard() {
         {/* Top Metrics */}
         <MetricsRow />
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 min-h-[600px]">
-          {/* Center Visualization */}
-          <div className="xl:col-span-2 space-y-4 flex flex-col">
-            {graphData ? <FraudStatsChart data={graphData} /> : (
-              <div className="card h-[500px] flex items-center justify-center">
-                <span className="spinner" style={{ width: '30px', height: '30px', borderTopColor: '#00ffb4' }}></span>
+        {/* Error Display */}
+        {error && (
+          <div className="card p-4 bg-red-500/10 border border-red-500/30">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+              <div>
+                <h4 className="text-sm font-bold text-red-400">Error Loading Dashboard</h4>
+                <p className="text-xs text-red-300 mt-1">{error}</p>
               </div>
-            )}
-            
-            <div className="card p-6 flex items-center justify-between bg-[rgba(0,180,255,0.05)] border-[rgba(0,180,255,0.3)] shadow-[0_0_20px_rgba(0,180,255,0.1)]">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-full bg-[rgba(0,180,255,0.1)] text-[#00b4ff] border border-[rgba(0,180,255,0.3)]">
-                  <Info className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-[#e0fff8] font-['Orbitron',monospace]">New Cluster Detected</h4>
-                  <p className="text-xs text-zinc-400 mt-1">A high-density subgraph of 12 wallets was flagged as a potential Sybil attack ring on Uniswap V3.</p>
-                </div>
-              </div>
-              <button onClick={() => alert('Cluster review feature coming soon!')} className="btn-primary" style={{ width: 'auto', padding: '10px 24px' }}>
-                Review Cluster
-              </button>
             </div>
           </div>
+        )}
 
-          {/* Right Feed */}
-          <div className="xl:col-span-1 flex flex-col">
-            <TransactionFeed />
+        {/* Visualizations Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 min-h-[600px]">
+            <div className="xl:col-span-2">
+              <div className="card h-[600px] flex items-center justify-center">
+                <div className="text-center">
+                  <span className="spinner" style={{ width: '40px', height: '40px', borderTopColor: '#00ffb4' }}></span>
+                  <p className="text-[#00ffb4] mt-4 font-medium">Loading fraud analysis...</p>
+                </div>
+              </div>
+            </div>
+            <div className="xl:col-span-1">
+              <TransactionFeed />
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* First Row: Fraud Stats Chart and Network Graph */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+              {/* Fraud Statistics Chart */}
+              <div className="xl:col-span-1">
+                {fraudStatsData ? (
+                  <FraudStatsChart data={fraudStatsData} />
+                ) : (
+                  <div className="card h-[500px] flex items-center justify-center">
+                    <span className="spinner" style={{ width: '30px', height: '30px', borderTopColor: '#00ffb4' }}></span>
+                  </div>
+                )}
+              </div>
+
+              {/* Network Graph */}
+              <div className="xl:col-span-2">
+                {graphData ? (
+                  <GraphVisualizer data={graphData} />
+                ) : (
+                  <div className="card h-[600px] flex items-center justify-center bg-[rgba(0,180,255,0.02)]">
+                    <div className="text-center">
+                      <span className="spinner" style={{ width: '30px', height: '30px', borderTopColor: '#00b4ff' }}></span>
+                      <p className="text-[#00b4ff] mt-4 font-medium">Loading network visualization...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Second Row: Alert Card and Transaction Feed */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mt-8">
+              <div className="xl:col-span-2">
+                <div className="card p-6 flex items-center justify-between bg-[rgba(0,180,255,0.05)] border-[rgba(0,180,255,0.3)] shadow-[0_0_20px_rgba(0,180,255,0.1)]">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-full bg-[rgba(0,180,255,0.1)] text-[#00b4ff] border border-[rgba(0,180,255,0.3)]">
+                      <Info className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-[#e0fff8] font-['Orbitron',monospace]">New Cluster Detected</h4>
+                      <p className="text-xs text-zinc-400 mt-1">A high-density subgraph of 12 wallets was flagged as a potential Sybil attack ring on Uniswap V3.</p>
+                    </div>
+                  </div>
+                  <button onClick={() => alert('Cluster review feature coming soon!')} className="btn-primary" style={{ width: 'auto', padding: '10px 24px' }}>
+                    Review Cluster
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Feed */}
+              <div className="xl:col-span-1 flex flex-col">
+                <TransactionFeed />
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </DashboardLayout>
   );
